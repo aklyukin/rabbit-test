@@ -23,5 +23,6 @@ build:
         done
 
 deps:
-		$(GOGET) github.com/aklyukin/rabbit-test-proto
+		$(GOGET) -u github.com/aklyukin/rabbit-test-proto
+
 

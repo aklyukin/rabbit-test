@@ -10,7 +10,7 @@ import (
 
 	pb "github.com/aklyukin/rabbit-test-proto"
 
-	"github.com/aklyukin/rabbit-test/internal/bidi"
+	"github.com/aklyukin/rabbit-test/int/bidi"
 )
 
 const (
@@ -35,7 +35,7 @@ func (s *server) RegisterNode(ctx context.Context, in *pb.RegisterNodeRequest) (
 
 func (s *server) PingServer(ctx context.Context, in *pb.Ping) (*pb.Pong, error){
 	log.Printf("Ping from client: %s", in.NodeName)
-	return &pb.Pong{"jjjjjjj"}, nil
+	return &pb.Pong{"jjjjjjjj"}, nil
 }
 
 func main() {

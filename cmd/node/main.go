@@ -16,7 +16,7 @@ const (
 	address     = "localhost:50051"
 )
 
-func registerNode(client pb.ServerClient, nodeName *pb.RegisterNodeRequest) bool{
+func RegisterNode(client pb.ServerClient, nodeName *pb.RegisterNodeRequest) bool{
 	resp, err := client.RegisterNode(context.Background(), nodeName)
 	if err != nil {
 		log.Fatalf("Error registering node: %v", err)
@@ -30,7 +30,7 @@ func registerNode(client pb.ServerClient, nodeName *pb.RegisterNodeRequest) bool
 	return resp.IsRegistered
 }
 
-func pingServer(client pb.ServerClient, nodeName *pb.Ping) string{
+func PingServer(client pb.ServerClient, nodeName *pb.Ping) string{
 	resp, err := client.PingServer(context.Background(), nodeName)
 	if err != nil {
 		log.Fatalf("Error ping server: %v", err)
@@ -58,11 +58,11 @@ func main() {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for {
 		time.Sleep(time.Duration(r.Int63n(10)) * time.Second)
-		isRegistered := registerNode(client, &pb.RegisterNodeRequest{nodeName})
+		isRegistered := RegisterNode(client, &pb.RegisterNodeRequest{nodeName})
 		if isRegistered == true {
 			for {
 				time.Sleep(5 * time.Second)
-				pongServer := pingServer(client, &pb.Ping{"kjkjkjk"})
+				pongServer := PingServer(client, &pb.Ping{"kjkjkjk"})
 				log.Printf("Pong from server: %s", pongServer)
 			}
 		}
