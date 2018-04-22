@@ -24,3 +24,4 @@ build:
 
 deps:
 		$(GOGET) github.com/aklyukin/rabbit-test-proto
+

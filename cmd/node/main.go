@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"log"
 	"time"
 	"math/rand"
@@ -8,11 +9,11 @@ import (
 	"google.golang.org/grpc"
 
 	pb "github.com/aklyukin/rabbit-test-proto"
+
 )
 
 const (
 	address     = "localhost:50051"
-	nodeName = "first-node"
 )
 
 func registerNode(client pb.ServerClient, nodeName *pb.RegisterNodeRequest) bool{
@@ -29,7 +30,23 @@ func registerNode(client pb.ServerClient, nodeName *pb.RegisterNodeRequest) bool
 	return resp.IsRegistered
 }
 
+func pingServer(client pb.ServerClient, nodeName *pb.Ping) string{
+	resp, err := client.PingServer(context.Background(), nodeName)
+	if err != nil {
+		log.Fatalf("Error ping server: %v", err)
+	}
+	return resp.ServerName
+}
+
+
 func main() {
+	nodeName := "first-node"
+	if len(os.Args) > 1 {
+		nodeName = os.Args[1]
+	} else {
+		nodeName = "first-node"
+	}
+
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
@@ -37,14 +54,17 @@ func main() {
 	defer conn.Close()
 
 	client := pb.NewServerClient(conn)
-	//cServer := pb.
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for {
 		time.Sleep(time.Duration(r.Int63n(10)) * time.Second)
 		isRegistered := registerNode(client, &pb.RegisterNodeRequest{nodeName})
 		if isRegistered == true {
-			break
+			for {
+				time.Sleep(5 * time.Second)
+				pongServer := pingServer(client, &pb.Ping{"kjkjkjk"})
+				log.Printf("Pong from server: %s", pongServer)
+			}
 		}
 	}
 
