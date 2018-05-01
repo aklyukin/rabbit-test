@@ -26,7 +26,7 @@ func Connect(addr string, grpcServer *grpc.Server) *grpc.ClientConn {
 			// connect and loop forever to keep retrying in the case that the connection
 			// drops for any reason
 			connect(addr, grpcServer, yDialer)
-			time.Sleep(1 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 	}()
 

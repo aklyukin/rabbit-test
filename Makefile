@@ -24,5 +24,6 @@ build:
 
 deps:
 		$(GOGET) -u github.com/aklyukin/rabbit-test-proto
+		$(GOGET) -u github.com/aklyukin/rabbit-test/int/bidi
 
 

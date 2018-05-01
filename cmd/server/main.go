@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net"
 	"time"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -35,14 +34,11 @@ func (s *server) RegisterNode(ctx context.Context, in *pb.RegisterNodeRequest) (
 
 func (s *server) PingServer(ctx context.Context, in *pb.Ping) (*pb.Pong, error){
 	log.Printf("Ping from client: %s", in.NodeName)
-	return &pb.Pong{"jjjjjjjj"}, nil
+	return &pb.Pong{serverName}, nil
 }
 
 func main() {
-	lis, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
+
 	grpcServer := grpc.NewServer()
 	pb.RegisterServerServer(grpcServer, &server{})
 	reflection.Register(grpcServer)
@@ -50,9 +46,19 @@ func main() {
 	gconn := bidi.Listen(port, grpcServer)
 	defer gconn.Close()
 
+	grpcClient := pb.NewNodeClient(gconn)
 
 	log.Printf("Server started")
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+	// Waiting for node[s]
+	time.Sleep(1 * time.Minute)
+	for {
+		r, err := grpcClient.CheckStatus(context.Background(), &pb.Empty{})
+		if err != nil {
+			log.Printf("could not check status: %v", err)
+		}
+		log.Printf("Check node status: %s", r.Status)
+		time.Sleep(10 * time.Second)
 	}
+
+	time.Sleep(10 * time.Minute)
 }

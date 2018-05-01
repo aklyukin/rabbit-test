@@ -3,18 +3,26 @@ package main
 import (
 	"os"
 	"log"
-	"time"
-	"math/rand"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-
 	pb "github.com/aklyukin/rabbit-test-proto"
 
+	"math/rand"
+	"time"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+	"github.com/aklyukin/rabbit-test/int/bidi"
 )
 
 const (
 	address     = "localhost:50051"
 )
+
+type server struct{}
+
+func (s *server) CheckStatus(ctx context.Context, empty *pb.Empty) (*pb.NodeStatusResponse, error){
+	log.Printf("Server ask for node status")
+	return &pb.NodeStatusResponse{pb.NodeStatusResponse_READY}, nil
+}
 
 func RegisterNode(client pb.ServerClient, nodeName *pb.RegisterNodeRequest) bool{
 	resp, err := client.RegisterNode(context.Background(), nodeName)
@@ -38,14 +46,41 @@ func PingServer(client pb.ServerClient, nodeName *pb.Ping) string{
 	return resp.ServerName
 }
 
-
 func main() {
-	nodeName := "first-node"
+	nodeName := "default-node"
 	if len(os.Args) > 1 {
+		if os.Args[1] == "--plain" {
+			doPlainClient(address, nodeName)
+			return
+		}
 		nodeName = os.Args[1]
-	} else {
-		nodeName = "first-node"
 	}
+
+	grpcServer := grpc.NewServer()
+	pb.RegisterNodeServer(grpcServer, &server{})
+	reflection.Register(grpcServer)
+
+	// open channel and create client
+	gconn := bidi.Connect(address, grpcServer)
+	defer gconn.Close()
+	grpcClient := pb.NewServerClient(gconn)
+
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for {
+		time.Sleep(time.Duration(r.Int63n(10)) * time.Second)
+		log.Printf("Try to register node")
+		isRegistered := RegisterNode(grpcClient, &pb.RegisterNodeRequest{nodeName})
+		if isRegistered == true {
+			for {
+				time.Sleep(5 * time.Second)
+				pongServer := PingServer(grpcClient, &pb.Ping{nodeName})
+				log.Printf("Pong from server: %s", pongServer)
+			}
+		}
+	}
+}
+
+func doPlainClient(address string, nodeName string) {
 
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
@@ -62,29 +97,9 @@ func main() {
 		if isRegistered == true {
 			for {
 				time.Sleep(5 * time.Second)
-				pongServer := PingServer(client, &pb.Ping{"kjkjkjk"})
+				pongServer := PingServer(client, &pb.Ping{nodeName})
 				log.Printf("Pong from server: %s", pongServer)
 			}
 		}
 	}
-
-
-
-
-	//
-	//stream, err := client.PingNode(context.Background()
-	//waitc := make(chan struct{})
-	//
-	//c := pb.NewClientClient(conn)
-	//
-	//// Contact the server and print out its response.
-	//name := defaultName
-	//if len(os.Args) > 1 {
-	//	name = os.Args[1]
-	//}
-	//r, err := c.SayHello(context.Background(), &pb.HelloRequest{Name: name})
-	//if err != nil {
-	//	log.Fatalf("could not greet: %v", err)
-	//}
-	//log.Printf("Greeting: %s", r.Message)
 }
