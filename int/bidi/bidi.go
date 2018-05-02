@@ -8,19 +8,19 @@ import (
 	"time"
 
 	"github.com/hashicorp/yamux"
-	"github.com/soheilhy/cmux"
 	"google.golang.org/grpc"
 )
 
 // Connect to the server and establish a yamux channel for bidi grpc
 func Connect(addr string, grpcServer *grpc.Server) *grpc.ClientConn {
 	// create client
+	log.Printf("Test 0")
 	yDialer := NewYamuxDialer()
 	gconn, err := grpc.Dial(addr, grpc.WithInsecure(), grpc.WithDialer(yDialer.Dial))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
-
+	log.Printf("Test 1")
 	go func() {
 		for {
 			// connect and loop forever to keep retrying in the case that the connection
@@ -30,6 +30,7 @@ func Connect(addr string, grpcServer *grpc.Server) *grpc.ClientConn {
 		}
 	}()
 
+	log.Printf("Test 2")
 	return gconn
 }
 
@@ -60,12 +61,15 @@ func connect(addr string, grpcServer *grpc.Server, yDialer *YamuxDialer) {
 	yDialer.SetSession(session)
 
 	// setup server
+	log.Printf("grpcServer.Serve 0")
 	go func() {
+		log.Printf("grpcServer.Serve 1")
 		// start grpc server using yamux session which implements the net.Listener interface
 		if err := grpcServer.Serve(session); err != nil {
 			// err will be returned when the server exits (underlying connection closes / client goes away)
 			log.Printf("grpc serve err: %v", err)
 		}
+		log.Printf("grpcServer.Serve 2")
 	}()
 
 	// reading from a channel blocks until some data is avail
@@ -80,9 +84,6 @@ func connect(addr string, grpcServer *grpc.Server, yDialer *YamuxDialer) {
 }
 
 // Listen starts the server side of the yamux channel for bidi grpc.
-//
-// Standard unidirectional grpc without yamux is still accepted as normal for
-// clients which don't support or need bidi communication.
 func Listen(addr string, grpcServer *grpc.Server) *grpc.ClientConn {
 	// create client
 	yDialer := NewYamuxDialer()
@@ -93,45 +94,35 @@ func Listen(addr string, grpcServer *grpc.Server) *grpc.ClientConn {
 	}
 
 	// create underlying tcp listener
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
-	}
+	//lis, err := net.Listen("tcp", addr)
+	//if err != nil {
+	//	log.Fatalf("failed to listen: %v", err)
+	//}
+	log.Printf("Listen func")
 
-	// use cmux to look for plain http2 clients
-	// this allows us to support non-yamux enabled clients (such as non-golang impls)
-	mux := cmux.New(lis)
-	grpcL := mux.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
-	yamuxL := mux.Match(cmux.Any())
-
-	// start servers for both plain-grpc and yamux bidi grpc
-	go grpcServer.Serve(grpcL)
-	go listenLoop(yamuxL, grpcServer, yDialer)
-
-	go mux.Serve()
+	// Listen Loop
+	//go func() {
+	//	for {
+	//		// accept a new connection and set up a yamux session on it
+	//		conn, err := lis.Accept()
+	//		if err != nil {
+	//			panic(err)
+	//		}
+	//		log.Printf("Accepted new connection in loop")
+	//
+	//		// server session will be used to multiplex both clients & servers
+	//		session, err := yamux.Server(conn, nil)
+	//		if err != nil {
+	//			panic(err)
+	//		}
+	//
+	//		// start grpc server using yamux session (which implements net.Listener)
+	//		go grpcServer.Serve(session)
+	//
+	//		// pass session to grpc client
+	//		yDialer.SetSession(session)
+	//	}
+	//}()
 
 	return gconn
-}
-
-func listenLoop(lis net.Listener, grpcServer *grpc.Server, dialer *YamuxDialer) {
-	for {
-		// accept a new connection and set up a yamux session on it
-		conn, err := lis.Accept()
-		if err != nil {
-			panic(err)
-		}
-
-		// server session will be used to multiplex both clients & servers
-		session, err := yamux.Server(conn, nil)
-		if err != nil {
-			panic(err)
-		}
-
-		// start grpc server using yamux session (which implements net.Listener)
-		go grpcServer.Serve(session)
-
-		// pass session to grpc client
-		dialer.SetSession(session)
-	}
-
 }

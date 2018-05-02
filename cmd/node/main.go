@@ -20,20 +20,20 @@ const (
 type server struct{}
 
 func (s *server) CheckStatus(ctx context.Context, empty *pb.Empty) (*pb.NodeStatusResponse, error){
-	log.Printf("Server ask for node status")
+	log.Printf("[GRPC] Server ask for node status")
 	return &pb.NodeStatusResponse{pb.NodeStatusResponse_READY}, nil
 }
 
 func RegisterNode(client pb.ServerClient, nodeName *pb.RegisterNodeRequest) bool{
 	resp, err := client.RegisterNode(context.Background(), nodeName)
 	if err != nil {
-		log.Fatalf("Error registering node: %v", err)
+		log.Fatalf("[GRPC] Error registering node: %v", err)
 	}
 	if resp.IsRegistered == true {
-		log.Printf("Node registered")
+		log.Printf("[GRPC] Node registered")
 	}
 	if resp.IsRegistered == false {
-		log.Printf("Node not registered")
+		log.Printf("[GRPC] Node not registered")
 	}
 	return resp.IsRegistered
 }
@@ -41,18 +41,15 @@ func RegisterNode(client pb.ServerClient, nodeName *pb.RegisterNodeRequest) bool
 func PingServer(client pb.ServerClient, nodeName *pb.Ping) string{
 	resp, err := client.PingServer(context.Background(), nodeName)
 	if err != nil {
-		log.Fatalf("Error ping server: %v", err)
+		log.Fatalf("[GRPC] Error ping server: %v", err)
 	}
+	log.Printf("[GRPC] Pong from server: %s", resp.ServerName)
 	return resp.ServerName
 }
 
 func main() {
 	nodeName := "default-node"
 	if len(os.Args) > 1 {
-		if os.Args[1] == "--plain" {
-			doPlainClient(address, nodeName)
-			return
-		}
 		nodeName = os.Args[1]
 	}
 
@@ -63,8 +60,9 @@ func main() {
 	// open channel and create client
 	gconn := bidi.Connect(address, grpcServer)
 	defer gconn.Close()
+	log.Printf("Test 10")
 	grpcClient := pb.NewServerClient(gconn)
-
+	log.Printf("Test 11")
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for {
 		time.Sleep(time.Duration(r.Int63n(10)) * time.Second)
@@ -73,32 +71,7 @@ func main() {
 		if isRegistered == true {
 			for {
 				time.Sleep(5 * time.Second)
-				pongServer := PingServer(grpcClient, &pb.Ping{nodeName})
-				log.Printf("Pong from server: %s", pongServer)
-			}
-		}
-	}
-}
-
-func doPlainClient(address string, nodeName string) {
-
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("did not connect: %v", err)
-	}
-	defer conn.Close()
-
-	client := pb.NewServerClient(conn)
-
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for {
-		time.Sleep(time.Duration(r.Int63n(10)) * time.Second)
-		isRegistered := RegisterNode(client, &pb.RegisterNodeRequest{nodeName})
-		if isRegistered == true {
-			for {
-				time.Sleep(5 * time.Second)
-				pongServer := PingServer(client, &pb.Ping{nodeName})
-				log.Printf("Pong from server: %s", pongServer)
+				PingServer(grpcClient, &pb.Ping{nodeName})
 			}
 		}
 	}

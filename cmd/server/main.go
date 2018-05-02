@@ -22,10 +22,10 @@ type server struct{}
 
 // RegisterNode implements Server
 func (s *server) RegisterNode(ctx context.Context, in *pb.RegisterNodeRequest) (*pb.RegisterNodeResponse, error) {
-	log.Printf("Client ask for register node: %s", in.NodeName)
+	log.Printf("[GRPC] Client ask for register node: %s", in.NodeName)
 	curTime := time.Now().Unix()
 	if curTime % 3 == 0{
-		log.Printf("register node")
+		log.Printf("[GRPC] Node registered: %s", in.NodeName)
 		return &pb.RegisterNodeResponse{true}, nil
 		//	add nodename to list
 	}
@@ -33,7 +33,7 @@ func (s *server) RegisterNode(ctx context.Context, in *pb.RegisterNodeRequest) (
 }
 
 func (s *server) PingServer(ctx context.Context, in *pb.Ping) (*pb.Pong, error){
-	log.Printf("Ping from client: %s", in.NodeName)
+	log.Printf("[GRPC] Ping from client: %s", in.NodeName)
 	return &pb.Pong{serverName}, nil
 }
 
@@ -50,13 +50,13 @@ func main() {
 
 	log.Printf("Server started")
 	// Waiting for node[s]
-	time.Sleep(1 * time.Minute)
+	time.Sleep(10 * time.Second)
 	for {
 		r, err := grpcClient.CheckStatus(context.Background(), &pb.Empty{})
 		if err != nil {
 			log.Printf("could not check status: %v", err)
 		}
-		log.Printf("Check node status: %s", r.Status)
+		log.Printf("[GRPC] Check node status: %s", r.Status)
 		time.Sleep(10 * time.Second)
 	}
 
