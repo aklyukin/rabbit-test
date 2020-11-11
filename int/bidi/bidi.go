@@ -3,12 +3,15 @@ package bidi
 import (
 	"context"
 	"fmt"
+	pbNode "github.com/aklyukin/rabbit-test-proto/node"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/yamux"
 	"google.golang.org/grpc"
+	"github.com/google/uuid"
 )
 
 // Connect to the server and establish a yamux channel for bidi grpc
@@ -80,7 +83,7 @@ func connect(addr string, grpcServer *grpc.Server, yDialer *YamuxDialer) {
 }
 
 // Listen starts the server side of the yamux channel for bidi grpc.
-func Listen(addr string, grpcServer *grpc.Server) *grpc.ClientConn {
+func Listen(addr string, nodesMap sync.Map, grpcServer *grpc.Server) *grpc.ClientConn {
 	// create client
 	yDialer := NewYamuxDialer()
 	gconn, err := grpc.Dial("localhost:50000", grpc.WithInsecure(), grpc.WithContextDialer(yDialer.Dial))
@@ -95,12 +98,12 @@ func Listen(addr string, grpcServer *grpc.Server) *grpc.ClientConn {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	go listenLoop(lis, grpcServer, yDialer)
+	go listenLoop(lis, nodesMap, grpcServer, yDialer)
 
 	return gconn
 }
 
-func listenLoop(lis net.Listener, grpcServer *grpc.Server, dialer *YamuxDialer) {
+func listenLoop(lis net.Listener, nodesMap sync.Map, grpcServer *grpc.Server, dialer *YamuxDialer) {
 	for {
 		// accept a new connection and set up a yamux session on it
 		conn, err := lis.Accept()
@@ -116,6 +119,10 @@ func listenLoop(lis net.Listener, grpcServer *grpc.Server, dialer *YamuxDialer) 
 
 		// start grpc server using yamux session (which implements net.Listener)
 		go grpcServer.Serve(session)
+
+		grpcClient := pbNode.NewNodeClient(session)
+		id := uuid.New().String()
+		nodesMap.Store(id, grpcClient)
 
 		// pass session to grpc client
 		dialer.SetSession(session)
