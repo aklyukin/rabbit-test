@@ -83,7 +83,7 @@ func connect(addr string, grpcServer *grpc.Server, yDialer *YamuxDialer) {
 }
 
 // Listen starts the server side of the yamux channel for bidi grpc.
-func Listen(addr string, nodesMap sync.Map, grpcServer *grpc.Server) *grpc.ClientConn {
+func Listen(addr string, nodesMap *sync.Map, grpcServer *grpc.Server) *grpc.ClientConn {
 	// create client
 	yDialer := NewYamuxDialer()
 	gconn, err := grpc.Dial("localhost:50000", grpc.WithInsecure(), grpc.WithContextDialer(yDialer.Dial))
@@ -103,7 +103,7 @@ func Listen(addr string, nodesMap sync.Map, grpcServer *grpc.Server) *grpc.Clien
 	return gconn
 }
 
-func listenLoop(lis net.Listener, nodesMap sync.Map, grpcServer *grpc.Server, dialer *YamuxDialer) {
+func listenLoop(lis net.Listener, nodesMap *sync.Map, grpcServer *grpc.Server, dialer *YamuxDialer) {
 	for {
 		// accept a new connection and set up a yamux session on it
 		conn, err := lis.Accept()
