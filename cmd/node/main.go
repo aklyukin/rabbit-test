@@ -1,16 +1,16 @@
 package main
 
 import (
-	"os"
-	"log"
+	pbMaster "github.com/aklyukin/rabbit-test-proto/master"
+	pbNode "github.com/aklyukin/rabbit-test-proto/node"
 	"golang.org/x/net/context"
-	pb "github.com/aklyukin/rabbit-test-proto"
+	"log"
+	"os"
 
-	"math/rand"
-	"time"
+	"github.com/aklyukin/rabbit-test/int/bidi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"github.com/aklyukin/rabbit-test/int/bidi"
+	"time"
 )
 
 const (
@@ -19,12 +19,12 @@ const (
 
 type server struct{}
 
-func (s *server) CheckStatus(ctx context.Context, empty *pb.Empty) (*pb.NodeStatusResponse, error){
+func (s *server) CheckStatus(ctx context.Context, empty *pbNode.Empty) (*pbNode.NodeStatusResponse, error){
 	log.Printf("[GRPC] Server ask for node status")
-	return &pb.NodeStatusResponse{pb.NodeStatusResponse_READY}, nil
+	return &pbNode.NodeStatusResponse{Status: pbNode.NodeStatusResponse_READY}, nil
 }
 
-func RegisterNode(client pb.ServerClient, nodeName *pb.RegisterNodeRequest) bool{
+func RegisterNode(client pbMaster.MasterClient, nodeName *pbMaster.RegisterNodeRequest) bool{
 	resp, err := client.RegisterNode(context.Background(), nodeName)
 	if err != nil {
 		log.Fatalf("[GRPC] Error registering node: %v", err)
@@ -38,7 +38,7 @@ func RegisterNode(client pb.ServerClient, nodeName *pb.RegisterNodeRequest) bool
 	return resp.IsRegistered
 }
 
-func PingServer(client pb.ServerClient, nodeName *pb.Ping) string{
+func PingServer(client pbMaster.MasterClient, nodeName *pbMaster.Ping) string{
 	resp, err := client.PingServer(context.Background(), nodeName)
 	if err != nil {
 		log.Fatalf("[GRPC] Error ping server: %v", err)
@@ -54,25 +54,22 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterNodeServer(grpcServer, &server{})
+	pbNode.RegisterNodeServer(grpcServer, &server{})
 	reflection.Register(grpcServer)
 
 	// open channel and create client
 	gconn := bidi.Connect(address, grpcServer)
 	defer gconn.Close()
-	log.Printf("Test 10")
-	grpcClient := pb.NewServerClient(gconn)
-	log.Printf("Test 11")
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for {
-		time.Sleep(time.Duration(r.Int63n(10)) * time.Second)
-		log.Printf("Try to register node")
-		isRegistered := RegisterNode(grpcClient, &pb.RegisterNodeRequest{nodeName})
-		if isRegistered == true {
-			for {
-				time.Sleep(5 * time.Second)
-				PingServer(grpcClient, &pb.Ping{nodeName})
-			}
+
+	grpcClient := pbMaster.NewMasterClient(gconn)
+
+	log.Printf("Try to register node")
+	time.Sleep(3 * time.Second)
+	isRegistered := RegisterNode(grpcClient, &pbMaster.RegisterNodeRequest{NodeName: nodeName})
+	if isRegistered == true {
+		for {
+			time.Sleep(5 * time.Second)
+			PingServer(grpcClient, &pbMaster.Ping{NodeName: nodeName})
 		}
 	}
 }

@@ -1,13 +1,15 @@
 package main
 
 import (
-	"log"
-	"time"
+	"fmt"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"log"
+	"sync"
+	"time"
 
-	pb "github.com/aklyukin/rabbit-test-proto"
+	pbMaster "github.com/aklyukin/rabbit-test-proto/master"
 
 	"github.com/aklyukin/rabbit-test/int/bidi"
 )
@@ -18,47 +20,55 @@ const (
 )
 
 // server is used to implement Server.
-type server struct{}
-
-// RegisterNode implements Server
-func (s *server) RegisterNode(ctx context.Context, in *pb.RegisterNodeRequest) (*pb.RegisterNodeResponse, error) {
-	log.Printf("[GRPC] Client ask for register node: %s", in.NodeName)
-	curTime := time.Now().Unix()
-	if curTime % 3 == 0{
-		log.Printf("[GRPC] Node registered: %s", in.NodeName)
-		return &pb.RegisterNodeResponse{true}, nil
-		//	add nodename to list
-	}
-	return &pb.RegisterNodeResponse{false}, nil
+type server struct{
+	pbMaster.UnimplementedMasterServer
 }
 
-func (s *server) PingServer(ctx context.Context, in *pb.Ping) (*pb.Pong, error){
+// RegisterNode implements Server
+func (s *server) RegisterNode(ctx context.Context, in *pbMaster.RegisterNodeRequest) (*pbMaster.RegisterNodeResponse, error) {
+	log.Printf("[GRPC] Client ask for register node: %s", in.NodeName)
+	//curTime := time.Now().Unix()
+	//if curTime % 3 == 0{
+	//	log.Printf("[GRPC] Node registered: %s", in.NodeName)
+	//	return &pbMaster.RegisterNodeResponse{IsRegistered: true}, nil
+	//	//	add nodename to list
+	//}
+	//return &pbMaster.RegisterNodeResponse{}, nil
+	return &pbMaster.RegisterNodeResponse{IsRegistered: true}, nil
+}
+
+func (s *server) PingServer(ctx context.Context, in *pbMaster.Ping) (*pbMaster.Pong, error){
 	log.Printf("[GRPC] Ping from client: %s", in.NodeName)
-	return &pb.Pong{serverName}, nil
+	return &pbMaster.Pong{ServerName: serverName}, nil
 }
 
 func main() {
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterServerServer(grpcServer, &server{})
+	pbMaster.RegisterMasterServer(grpcServer, &server{})
 	reflection.Register(grpcServer)
 
-	gconn := bidi.Listen(port, grpcServer)
+	var nodesMap = &sync.Map{}
+
+	gconn := bidi.Listen(port, nodesMap, grpcServer)
 	defer gconn.Close()
 
-	grpcClient := pb.NewNodeClient(gconn)
+	//grpcClient := pbNode.NewNodeClient(gconn)
 
 	log.Printf("Server started")
+
 	// Waiting for node[s]
 	time.Sleep(10 * time.Second)
 	for {
-		r, err := grpcClient.CheckStatus(context.Background(), &pb.Empty{})
-		if err != nil {
-			log.Printf("could not check status: %v", err)
-		}
-		log.Printf("[GRPC] Check node status: %s", r.Status)
 		time.Sleep(10 * time.Second)
+		log.Printf("Nodes: ")
+		nodesMap.Range(func(key interface{}, value interface{}) bool {
+			log.Printf(fmt.Sprint(key))
+			return true
+		})
 	}
 
 	time.Sleep(10 * time.Minute)
 }
+
+//https://github.com/chetan/bidi-hello/tree/master/helloworld
