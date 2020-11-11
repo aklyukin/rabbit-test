@@ -83,7 +83,7 @@ func connect(addr string, grpcServer *grpc.Server, yDialer *YamuxDialer) {
 func Listen(addr string, grpcServer *grpc.Server) *grpc.ClientConn {
 	// create client
 	yDialer := NewYamuxDialer()
-	gconn, err := grpc.Dial("localhost:50000", grpc.WithInsecure(), grpc.WithContextDialer(yDialer.Dial)))
+	gconn, err := grpc.Dial("localhost:50000", grpc.WithInsecure(), grpc.WithContextDialer(yDialer.Dial))
 	if err != nil {
 		fmt.Println("failed to create grpc client: ", err)
 		return nil
