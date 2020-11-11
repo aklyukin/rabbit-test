@@ -2,11 +2,10 @@ package bidi
 
 import (
 	"errors"
+	"github.com/hashicorp/yamux"
+	"golang.org/x/net/context"
 	"net"
 	"sync"
-	"time"
-
-	"github.com/hashicorp/yamux"
 )
 
 type YamuxDialer struct {
@@ -26,7 +25,7 @@ func (y *YamuxDialer) SetSession(sess *yamux.Session) {
 }
 
 // Dial a connection using a yamux session
-func (y *YamuxDialer) Dial(addr string, d time.Duration) (net.Conn, error) {
+func (y *YamuxDialer) Dial(addr context.Context, string2 string) (net.Conn, error) {
 	y.mu.Lock()
 	defer y.mu.Unlock()
 	if y.session == nil || y.session.IsClosed() {
